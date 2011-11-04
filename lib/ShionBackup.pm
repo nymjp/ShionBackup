@@ -30,12 +30,13 @@ sub run {
     my $class = shift;
     local @ARGV = @_;
 
-    my ($DUMP_CONFIG, $WORK_FILE);
+    my ( $DUMP_CONFIG, $WORK_FILE, $NOUPLOAD );
     GetOptions(
         'help|h'       => \&usage,
         'dumpconfig|d' => \$DUMP_CONFIG,
         'workfile|w=s' => \$WORK_FILE,
-        'debug' => sub { $ShionBackup::Logger::LOG_LEVEL = LOG_DEBUG },
+        'noupload'     => \$NOUPLOAD,
+        'debug'        => sub { $ShionBackup::Logger::LOG_LEVEL = LOG_DEBUG },
     ) or usage();
     @ARGV || usage();
 
@@ -58,7 +59,7 @@ sub run {
             $work_fh = tempfile( UNLINK => 1 );
         }
 
-        my $s3up = $class->create_s3uploader($conf);
+        my $uploader = $class->create_s3uploader( $conf, $NOUPLOAD );
 
         for my $target ( @{ $conf->{targets} } ) {
             my $filename = $target->{filename};
@@ -92,41 +93,40 @@ sub run {
                 print $work_fh $buffer;
 
                 if ( eof $fh ) {
-                    eval {
-                        $piper->check_status;
-                    };
-                    if ( $@ ) {
-                        $s3up->abort_upload( $filename ) if $is_part;
+                    eval { $piper->check_status; };
+                    if ($@) {
+                        $uploader->abort_upload($filename) if $is_part;
                         die $@;
                     }
 
                     seek $work_fh, 0, 0;
-                    if ( $is_part ) {
+                    if ($is_part) {
                         INFO "part uploading $filename: size=$size";
-                        my $num = $s3up->upload_part( $filename, $work_fh );
+                        my $num
+                            = $uploader->upload_part( $filename, $work_fh );
                         INFO "part upload($num) done.";
                         INFO "finalizing upload $filename";
-                        $s3up->complete_upload( $filename );
-                        INFO "finalize done."
+                        $uploader->complete_upload($filename);
+                        INFO "finalize done.";
                     }
                     else {
                         INFO "uploading $filename: size=$size";
-                        $s3up->upload( $filename, $work_fh );
-                        INFO "upload done."
+                        $uploader->upload( $filename, $work_fh );
+                        INFO "upload done.";
                     }
                     last;
                 }
                 elsif ( $uploadsize && $size >= $uploadsize ) {
                     if ( !$is_part ) {
                         INFO "initializing part upload $filename.";
-                        $s3up->init_upload( $filename );
+                        $uploader->init_upload($filename);
                         $is_part = 1;
-                        INFO "initialize done."
+                        INFO "initialize done.";
                     }
 
                     seek $work_fh, 0, 0;
                     INFO "part uploading $filename: size=$size";
-                    my $num = $s3up->upload_part( $filename, $work_fh );
+                    my $num = $uploader->upload_part( $filename, $work_fh );
                     INFO "part upload($num) done.";
 
                     seek $work_fh, 0, 0;
@@ -145,7 +145,7 @@ sub run {
 
 sub create_s3uploader {
     my $class = shift;
-    my ($conf) = @_;
+    my ( $conf, $nouload ) = @_;
 
     my %s3conf = %{ $conf->{s3} };
     for ( @s3conf{ 'baseurl', 'id', 'secret' } ) {
@@ -154,8 +154,15 @@ sub create_s3uploader {
         $_ = $_->();
     }
 
-    ShionBackup::S3Uploader->new( $s3conf{baseurl}, $s3conf{id},
-        $s3conf{secret} );
+    if ($nouload) {
+        use ShionBackup::NullUploader;
+        INFO "S3: baseurl=$s3conf{baseurl}, id=$s3conf{id}, secret=**";
+        ShionBackup::NullUploader->new;
+    }
+    else {
+        ShionBackup::S3Uploader->new( $s3conf{baseurl}, $s3conf{id},
+            $s3conf{secret} );
+    }
 }
 
 =back
