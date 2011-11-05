@@ -26,7 +26,7 @@ use Digest::MD5;
 use LWP::UserAgent;
 
 our $TEST_MODE   = undef;
-our $BUFFER_SIZE = 4096;
+our $BUFFER_SIZE = 4096 * 16;
 
 my %RESOURCE_SUBREQUEST = map { $_ => 1 } qw(
     acl location logging notification partNumber policy requestPayment
@@ -47,7 +47,8 @@ sub new {
     DEBUG "S3Uploader::new( url_base=$url_base, id=$id, secret=*** )";
     INFO "url base: $url_base";
     bless {
-        ua => LWP::UserAgent->new,
+        ua            => LWP::UserAgent->new,
+        show_progress => undef,
 
         url_base => URI->new($url_base),
         id       => $id,
@@ -68,7 +69,7 @@ sub new {
 
 =cut
 
-for my $field (qw[ upload_id ]) {
+for my $field (qw[ show_progress upload_id ]) {
     my $slot = __PACKAGE__ . "::$field";
     no strict 'refs';
     *$slot = sub {
@@ -223,9 +224,25 @@ sub build_request {
     my $request = HTTP::Request->new( $verb, $url, $header );
     if ( ref $content eq 'GLOB' ) {
         my $buffer;
+        my $upload_length = 0;
         $request->content(
             sub {
-                read $content, $buffer, $BUFFER_SIZE;
+                $upload_length += read $content, $buffer, $BUFFER_SIZE;
+                if ( $self->{show_progress} ) {
+                    my $complete_ratio = ( $upload_length * 1.0 ) / $length;
+                    my $mark_num       = int( $complete_ratio * 20 );
+                    printf STDERR (
+                        "\r" . 'uploading [%s>%s] %3.1f%% %d/%d',
+                        "=" x $mark_num,
+                        "." x ( 20 - $mark_num ),
+                        $complete_ratio * 100,
+                        $upload_length,
+                        $length
+                    );
+                    if ( length($buffer) == 0 ) {
+                        print STDERR "\n";
+                    }
+                }
                 $buffer;
             }
         );

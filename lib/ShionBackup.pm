@@ -30,12 +30,13 @@ sub run {
     my $class = shift;
     local @ARGV = @_;
 
-    my ( $DUMP_CONFIG, $WORK_FILE, $NOUPLOAD );
+    my ( $DUMP_CONFIG, $WORK_FILE, $NOUPLOAD, $PROGRESS );
     GetOptions(
         'help|h'       => \&usage,
         'dumpconfig|d' => \$DUMP_CONFIG,
         'workfile|w=s' => \$WORK_FILE,
         'noupload'     => \$NOUPLOAD,
+        'progress'     => \$PROGRESS,
         'debug'        => sub { $ShionBackup::Logger::LOG_LEVEL = LOG_DEBUG },
     ) or usage();
     @ARGV || usage();
@@ -59,7 +60,8 @@ sub run {
             $work_fh = tempfile( UNLINK => 1 );
         }
 
-        my $uploader = $class->create_s3uploader( $conf, $NOUPLOAD );
+        my $uploader
+            = $class->create_s3uploader( $conf, $NOUPLOAD, $PROGRESS );
 
         for my $target ( @{ $conf->{targets} } ) {
             my $filename = $target->{filename};
@@ -145,7 +147,7 @@ sub run {
 
 sub create_s3uploader {
     my $class = shift;
-    my ( $conf, $nouload ) = @_;
+    my ( $conf, $nouload, $progress ) = @_;
 
     my %s3conf = %{ $conf->{s3} };
     for ( @s3conf{ 'baseurl', 'id', 'secret' } ) {
@@ -154,15 +156,19 @@ sub create_s3uploader {
         $_ = $_->();
     }
 
+    my $uploader;
     if ($nouload) {
         use ShionBackup::NullUploader;
         INFO "S3: baseurl=$s3conf{baseurl}, id=$s3conf{id}, secret=**";
-        ShionBackup::NullUploader->new;
+        $uploader = ShionBackup::NullUploader->new;
     }
     else {
-        ShionBackup::S3Uploader->new( $s3conf{baseurl}, $s3conf{id},
+        $uploader
+            = ShionBackup::S3Uploader->new( $s3conf{baseurl}, $s3conf{id},
             $s3conf{secret} );
+        $uploader->show_progress(1) if ($progress);
     }
+    $uploader;
 }
 
 =back
