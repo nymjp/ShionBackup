@@ -63,6 +63,9 @@ sub run {
         my $uploader
             = $class->create_s3uploader( $conf, $NOUPLOAD, $PROGRESS );
 
+        ## abort previous incomplete upload
+        $uploader->abort_incomplete;
+
         for my $target ( @{ $conf->{targets} } ) {
             my $filename = $target->{filename};
             my $uploadsize

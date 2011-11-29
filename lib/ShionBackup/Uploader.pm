@@ -70,6 +70,14 @@ sub complete_upload {
     croak "implement me!!";
 }
 
+=item abort_incomplete()
+
+=cut
+
+sub abort_incomplete {
+    croak "implement me!!";
+}
+
 =item abort_upload( $filename )
 
 =cut

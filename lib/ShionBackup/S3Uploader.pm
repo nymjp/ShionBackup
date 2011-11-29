@@ -387,6 +387,26 @@ sub complete_upload {
     $response->content;
 }
 
+=item abort_incomplete()
+
+=cut
+
+sub abort_incomplete {
+    my $self       = shift;
+    my @incomplete = @{ $self->get_incomplete };
+    if (@incomplete) {
+        INFO( scalar(@incomplete), " incomplete object(s) found." );
+        for my $target ( @{ $self->get_incomplete } ) {
+            INFO "abourt: $target->[0] => $target->[1]";
+            $self->upload_id( $target->[1] );
+            $self->abort_upload( '/' . $target->[0] );
+        }
+    }
+    else {
+        INFO "no incomplete part objects found.";
+    }
+}
+
 =item abort_upload( $filename )
 
 =cut

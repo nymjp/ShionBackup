@@ -90,6 +90,17 @@ sub complete_upload {
     return 1;
 }
 
+=item abort_incomplete()
+
+=cut
+
+sub abort_incomplete {
+    my $self = shift;
+    my ($filename) = @_;
+    INFO("=DUMMY UPLOAD= abort_incomplete");
+    return 1;
+}
+
 =item abort_upload( $filename )
 
 =cut
