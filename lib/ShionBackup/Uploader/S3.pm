@@ -254,6 +254,10 @@ sub upload {
     my ( $args, $file, $content ) = @_;
 
     my %header;
+    if ( $args->{S3_RRS} ) {
+        $header{'x-amz-storage-class'} = 'REDUCED_REDUNDANCY';
+    }
+
     my $request = $self->build_request( 'PUT', $file, $content, \%header );
     DEBUG "request =>\n", $request->as_string if IS_DEBUG;
 
@@ -277,6 +281,10 @@ sub init_upload {
     $url->query_form( 'uploads' => undef );
 
     my %header;
+    if ( $args->{S3_RRS} ) {
+        $header{'x-amz-storage-class'} = 'REDUCED_REDUNDANCY';
+    }
+
     my $request = $self->build_request( 'POST', $url, undef, \%header );
     DEBUG "request =>\n", $request->as_string if IS_DEBUG;
 
