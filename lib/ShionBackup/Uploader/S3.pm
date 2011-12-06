@@ -257,6 +257,8 @@ sub upload {
     if ( $args->{S3_RRS} ) {
         $header{'x-amz-storage-class'} = 'REDUCED_REDUNDANCY';
     }
+    $header{'Content-Type'} = $args->{S3_CONTENT_TYPE}
+        // 'binary/octet-stream';
 
     my $request = $self->build_request( 'PUT', $file, $content, \%header );
     DEBUG "request =>\n", $request->as_string if IS_DEBUG;
@@ -284,6 +286,8 @@ sub init_upload {
     if ( $args->{S3_RRS} ) {
         $header{'x-amz-storage-class'} = 'REDUCED_REDUNDANCY';
     }
+    $header{'Content-Type'} = $args->{S3_CONTENT_TYPE}
+        // 'binary/octet-stream';
 
     my $request = $self->build_request( 'POST', $url, undef, \%header );
     DEBUG "request =>\n", $request->as_string if IS_DEBUG;
