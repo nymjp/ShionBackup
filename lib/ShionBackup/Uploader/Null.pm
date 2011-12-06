@@ -1,10 +1,10 @@
-package ShionBackup::NullUploader;
+package ShionBackup::Uploader::Null;
 
 =encoding utf-8
 
 =head1 NAME
 
-ShionBackup::NullUploader
+ShionBackup::Uploader::Null
 
 =head1 DESCRIPTION
 
@@ -12,6 +12,7 @@ ShionBackup::NullUploader
 
 use strict;
 use warnings;
+use base 'ShionBackup::Uploader';
 use Carp;
 use ShionBackup::Logger;
 

@@ -1,4 +1,4 @@
-package ShionBackup::S3Uploader;
+package ShionBackup::Uploader::S3;
 
 =encoding utf-8
 
@@ -12,6 +12,7 @@ ShionBackup::S3Uploader
 
 use strict;
 use warnings;
+use base 'ShionBackup::Uploader';
 use Carp;
 use ShionBackup::Logger;
 
@@ -43,20 +44,10 @@ my %RESOURCE_SUBREQUEST = map { $_ => 1 } qw(
 
 sub new {
     my $class = shift;
-    my ( $url_base, $id, $secret ) = @_;
-    DEBUG "S3Uploader::new( url_base=$url_base, id=$id, secret=*** )";
-    INFO "url base: $url_base";
-    bless {
-        ua            => LWP::UserAgent->new,
-        show_progress => undef,
-
-        url_base => URI->new($url_base),
-        id       => $id,
-        secret   => $secret,
-
-        upload_id   => undef,
-        upload_part => [],
-    }, $class;
+    my $self = $class->SUPER::new(@_);
+    $self->{upload_id}   = undef;
+    $self->{upload_part} = [];
+    $self;
 }
 
 =back
@@ -69,7 +60,7 @@ sub new {
 
 =cut
 
-for my $field (qw[ show_progress upload_id ]) {
+for my $field (qw[ upload_id ]) {
     my $slot = __PACKAGE__ . "::$field";
     no strict 'refs';
     *$slot = sub {
@@ -228,7 +219,7 @@ sub build_request {
         $request->content(
             sub {
                 $upload_length += read $content, $buffer, $BUFFER_SIZE;
-                if ( $self->{show_progress} ) {
+                if ( $self->is_show_progress ) {
                     my $complete_ratio = ( $upload_length * 1.0 ) / $length;
                     my $mark_num       = int( $complete_ratio * 20 );
                     printf STDERR (

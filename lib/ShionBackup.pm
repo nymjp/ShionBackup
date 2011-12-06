@@ -12,7 +12,7 @@ use File::Temp qw( tempfile );
 use ShionBackup::Logger;
 use ShionBackup::Config;
 use ShionBackup::PipeExec;
-use ShionBackup::S3Uploader;
+use ShionBackup::Uploader;
 
 =head1 NAME
 
@@ -60,8 +60,7 @@ sub run {
             $work_fh = tempfile( UNLINK => 1 );
         }
 
-        my $uploader
-            = $class->create_s3uploader( $conf, $NOUPLOAD, $PROGRESS );
+        my $uploader = $class->create_uploader( $conf, $NOUPLOAD, $PROGRESS );
 
         ## abort previous incomplete upload
         $uploader->abort_incomplete;
@@ -144,33 +143,25 @@ sub run {
     INFO 'all backup end';
 }
 
-=item create_s3uploader( \%config );
+=item create_uploader( \%config );
 
 =cut
 
-sub create_s3uploader {
+sub create_uploader {
     my $class = shift;
-    my ( $conf, $nouload, $progress ) = @_;
+    my ( $conf, $noupload, $progress ) = @_;
 
-    my %s3conf = %{ $conf->{s3} };
-    for ( @s3conf{ 'baseurl', 'id', 'secret' } ) {
-        die "invalid s3 config.\n" unless defined $_;
+    my %uploader_conf = %{ $conf->{uploader} };
+    for ( @uploader_conf{ 'class', 'baseurl', 'id', 'secret' } ) {
+        die "invalid uploader config.\n" unless defined $_;
         next unless ref $_ eq 'CODE';
         $_ = $_->();
     }
 
-    my $uploader;
-    if ($nouload) {
-        use ShionBackup::NullUploader;
-        INFO "S3: baseurl=$s3conf{baseurl}, id=$s3conf{id}, secret=**";
-        $uploader = ShionBackup::NullUploader->new;
-    }
-    else {
-        $uploader
-            = ShionBackup::S3Uploader->new( $s3conf{baseurl}, $s3conf{id},
-            $s3conf{secret} );
-        $uploader->show_progress(1) if ($progress);
-    }
+    $uploader_conf{class} = 'Null' if $noupload;
+
+    my $uploader = ShionBackup::Uploader->create( \%uploader_conf );
+    $uploader->set_show_progress(1) if ($progress);
     $uploader;
 }
 

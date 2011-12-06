@@ -25,7 +25,39 @@ use ShionBackup::Logger;
 
 sub new {
     my $class = shift;
-    bless {}, $class;
+    my ( $url_base, $id, $secret ) = @_;
+    DEBUG $class, "::new( url_base=$url_base, id=$id, secret=*** )";
+    INFO "url base: $url_base";
+    bless {
+        url_base => URI->new($url_base),
+        id       => $id,
+        secret   => $secret,
+
+        ua               => LWP::UserAgent->new,
+        is_show_progress => undef,
+    }, $class;
+}
+
+=back
+
+=head2 CLASS METHODS
+
+=over 4
+
+=item create( \%uploader_config )
+
+=cut
+
+sub create {
+    my $class = shift;
+    my ($config) = @_;
+
+    my $uploader_class = $config->{class};
+    eval "use ShionBackup::Uploader::$uploader_class";
+    die $@ if ($@);
+
+    "ShionBackup::Uploader::$uploader_class"
+        ->new( $config->{baseurl}, $config->{id}, $config->{secret} );
 }
 
 =back
@@ -33,6 +65,25 @@ sub new {
 =head2 METHODS
 
 =over 4
+
+=item is_show_progress(): bool
+
+=cut
+
+sub is_show_progress {
+    my $self = shift;
+    $self->{is_show_progress};
+}
+
+=item set_show_progress( bool )
+
+=cut
+
+sub set_show_progress {
+    my $self = shift;
+    my ($is_show_progess) = @_;
+    $self->{is_show_progress} = $is_show_progess;
+}
 
 =item upload( $filename, $content )
 

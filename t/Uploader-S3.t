@@ -5,16 +5,16 @@ use warnings;
 use Test::More;
 
 BEGIN {
-    use_ok('ShionBackup::S3Uploader');
+    use_ok('ShionBackup::Uploader::S3');
 }
-local $ShionBackup::S3Uploader::TEST_MODE   = 1;
-local $ShionBackup::S3Uploader::BUFFER_SIZE = 10;
+local $ShionBackup::Uploader::S3::TEST_MODE   = 1;
+local $ShionBackup::Uploader::S3::BUFFER_SIZE = 10;
 
 use ShionBackup::Logger;
 local $ShionBackup::Logger::LOG_LEVEL = LOG_DEBUG;
 
-package ShionBackup::Test::S3Uploader;
-use base qw(ShionBackup::S3Uploader);
+package ShionBackup::Test::Uploader::S3;
+use base qw(ShionBackup::Uploader::S3);
 
 sub get_time {1313678905}
 
@@ -24,7 +24,7 @@ sub create_object {
 
 # see
 # http://docs.amazonwebservices.com/AmazonS3/latest/dev/index.html?RESTAuthentication.html
-    ShionBackup::Test::S3Uploader->new(
+    ShionBackup::Test::Uploader::S3->new(
         'http://johnsmith.s3.amazonaws.com/test/',
         '0PN5J17HBGZHT7JJ3X82', 'uV3F3YluFJax1cknvbcGwgjvx4QpvB+leU8dUj2o' );
 }
