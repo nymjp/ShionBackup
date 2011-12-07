@@ -85,7 +85,7 @@ sub set_show_progress {
     $self->{is_show_progress} = $is_show_progess;
 }
 
-=item upload( $filename, $content )
+=item upload( \%args, $filename, $content )
 
 $content は文字列かファイルハンドル
 
@@ -95,7 +95,7 @@ sub upload {
     croak "implement me!!";
 }
 
-=item init_upload( $filename )
+=item init_upload( \%args, $filename ) : $context
 
 =cut
 
@@ -103,7 +103,7 @@ sub init_upload {
     croak "implement me!!";
 }
 
-=item upload_part( $filename, $content ) : $part_num
+=item upload_part( $context, $filename, $content ) : $part_num
 
 1から始まる部分の番号を返す。
 
@@ -113,11 +113,19 @@ sub upload_part {
     croak "implement me!!";
 }
 
-=item complete_upload( $filename )
+=item complete_upload( $context, $filename )
 
 =cut
 
 sub complete_upload {
+    croak "implement me!!";
+}
+
+=item abort_upload( $context, $filename )
+
+=cut
+
+sub abort_upload {
     croak "implement me!!";
 }
 
@@ -126,14 +134,6 @@ sub complete_upload {
 =cut
 
 sub abort_incomplete {
-    croak "implement me!!";
-}
-
-=item abort_upload( $filename )
-
-=cut
-
-sub abort_upload {
     croak "implement me!!";
 }
 

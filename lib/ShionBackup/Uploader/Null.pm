@@ -39,7 +39,7 @@ sub _get_length($) {
 
 =over 4
 
-=item upload( $filename, $content )
+=item upload( \%args, $filename, $content )
 
 $content は文字列かファイルハンドル
 
@@ -47,25 +47,25 @@ $content は文字列かファイルハンドル
 
 sub upload {
     my $self = shift;
-    my ( $filename, $content ) = @_;
+    my ( $args, $filename, $content ) = @_;
     INFO( "=DUMMY UPLOAD= upload: filename=$filename, content length=",
         _get_length($content) );
     return 1;
 }
 
-=item init_upload( $filename )
+=item init_upload( \%args, $filename ) : $context
 
 =cut
 
 sub init_upload {
     my $self = shift;
-    my ($filename) = @_;
+    my ( $args, $filename ) = @_;
     $self->{count} = 0;
     INFO("=DUMMY UPLOAD= init_upload: filename=$filename");
     return 1;
 }
 
-=item upload_part( $filename, $content ) : $part_num
+=item upload_part( $context, $filename, $content ) : $part_num
 
 1から始まる部分の番号を返す。
 
@@ -73,21 +73,32 @@ sub init_upload {
 
 sub upload_part {
     my $self = shift;
-    my ( $filename, $content ) = @_;
+    my ( $context, $filename, $content ) = @_;
     INFO( "=DUMMY UPLOAD= upload_part: filename=$filename, content length=",
         _get_length($content) );
     return ++$self->{count};
 }
 
-=item complete_upload( $filename )
+=item complete_upload( $context, $filename )
 
 =cut
 
 sub complete_upload {
     my $self = shift;
-    my ($filename) = @_;
+    my ( $context, $filename ) = @_;
     INFO("=DUMMY UPLOAD= complete_upload: filename=$filename");
     undef $self->{count};
+    return 1;
+}
+
+=item abort_upload( $context, $filename )
+
+=cut
+
+sub abort_upload {
+    my $self = shift;
+    my ( $context, $filename ) = @_;
+    INFO("=DUMMY UPLOAD= abort_upload: filename=$filename");
     return 1;
 }
 
@@ -97,19 +108,7 @@ sub complete_upload {
 
 sub abort_incomplete {
     my $self = shift;
-    my ($filename) = @_;
     INFO("=DUMMY UPLOAD= abort_incomplete");
-    return 1;
-}
-
-=item abort_upload( $filename )
-
-=cut
-
-sub abort_upload {
-    my $self = shift;
-    my ($filename) = @_;
-    INFO("=DUMMY UPLOAD= abort_upload: filename=$filename");
     return 1;
 }
 

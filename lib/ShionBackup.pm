@@ -87,7 +87,7 @@ sub run {
 
             seek $work_fh, 0, 0;
             truncate $work_fh, 0;
-            my ( $buffer, $is_part );
+            my ( $buffer, $part_context );
             my $size = 0;
             while (1) {
 
@@ -99,38 +99,42 @@ sub run {
                 if ( eof $fh ) {
                     eval { $piper->check_status; };
                     if ($@) {
-                        $uploader->abort_upload($filename) if $is_part;
+                        $uploader->abort_upload( $part_context, $filename )
+                            if $part_context;
                         die $@;
                     }
 
                     seek $work_fh, 0, 0;
-                    if ($is_part) {
+                    if ($part_context) {
                         INFO "part uploading $filename: size=$size";
-                        my $num
-                            = $uploader->upload_part( $filename, $work_fh );
+                        my $num = $uploader->upload_part( $part_context,
+                            $filename, $work_fh );
                         INFO "part upload($num) done.";
                         INFO "finalizing upload $filename";
-                        $uploader->complete_upload($filename);
+                        $uploader->complete_upload( $part_context,
+                            $filename );
                         INFO "finalize done.";
                     }
                     else {
                         INFO "uploading $filename: size=$size";
-                        $uploader->upload( $filename, $work_fh );
+                        $uploader->upload( $args, $filename, $work_fh );
                         INFO "upload done.";
                     }
                     last;
                 }
                 elsif ( $uploadsize && $size >= $uploadsize ) {
-                    if ( !$is_part ) {
+                    if ( !$part_context ) {
                         INFO "initializing part upload $filename.";
-                        $uploader->init_upload($filename);
-                        $is_part = 1;
+                        $part_context
+                            = $uploader->init_upload( $args, $filename );
                         INFO "initialize done.";
                     }
 
                     seek $work_fh, 0, 0;
                     INFO "part uploading $filename: size=$size";
-                    my $num = $uploader->upload_part( $filename, $work_fh );
+                    my $num
+                        = $uploader->upload_part( $part_context, $filename,
+                        $work_fh );
                     INFO "part upload($num) done.";
 
                     seek $work_fh, 0, 0;

@@ -44,10 +44,7 @@ my %RESOURCE_SUBREQUEST = map { $_ => 1 } qw(
 
 sub new {
     my $class = shift;
-    my $self = $class->SUPER::new(@_);
-    $self->{upload_id}   = undef;
-    $self->{upload_part} = [];
-    $self;
+    $class->SUPER::new(@_);
 }
 
 =back
@@ -55,20 +52,6 @@ sub new {
 =head2 METHODS
 
 =over 4
-
-=item upload_id
-
-=cut
-
-for my $field (qw[ upload_id ]) {
-    my $slot = __PACKAGE__ . "::$field";
-    no strict 'refs';
-    *$slot = sub {
-        my $self = shift;
-        $self->{$field} = shift if @_;
-        $self->{$field};
-    };
-}
 
 =item get_time
 
@@ -178,6 +161,7 @@ $URL は、相対URL でもよい。$CONTENT は、文字列かファイルハ�
 sub build_request {
     my $self = shift;
     my ( $verb, $url, $content, $header_hash ) = @_;
+    $header_hash = {} unless defined $header_hash;
 
     # URL
     $url = URI->new_abs( $url, $self->{url_base} );
@@ -202,7 +186,7 @@ sub build_request {
     }
 
     #header
-    my $header = HTTP::Headers->new($header_hash);
+    my $header = HTTP::Headers->new(%$header_hash);
     $header->date( $self->get_time );
     $header->header( Host => $url->host );
 
@@ -259,7 +243,7 @@ sub request {
     return $self->{ua}->request($request);
 }
 
-=item upload( $filename, $content )
+=item upload( \%args, $filename, $content )
 
 $content は文字列かファイルハンドル
 
@@ -267,9 +251,10 @@ $content は文字列かファイルハンドル
 
 sub upload {
     my $self = shift;
-    my ( $file, $content ) = @_;
+    my ( $args, $file, $content ) = @_;
 
-    my $request = $self->build_request( 'PUT', $file, $content );
+    my %header;
+    my $request = $self->build_request( 'PUT', $file, $content, \%header );
     DEBUG "request =>\n", $request->as_string if IS_DEBUG;
 
     my $response = $self->request($request);
@@ -280,20 +265,19 @@ sub upload {
     1;
 }
 
-=item init_upload( $filename )
+=item init_upload( \%args, $filename ) : $context
 
 =cut
 
 sub init_upload {
     my $self = shift;
-    my ($file) = @_;
-
-    croak "already initialized part upload\n" if defined $self->{upload_id};
+    my ( $args, $file ) = @_;
 
     my $url = URI->new($file);
     $url->query_form( 'uploads' => undef );
 
-    my $request = $self->build_request( 'POST', $url, undef );
+    my %header;
+    my $request = $self->build_request( 'POST', $url, undef, \%header );
     DEBUG "request =>\n", $request->as_string if IS_DEBUG;
 
     my $response = $self->request($request);
@@ -309,24 +293,21 @@ sub init_upload {
 
     DEBUG "upload_id => $upload_id";
 
-    $self->{upload_part} = [];
-    $self->{upload_id}   = $upload_id;
+    return ShionBackup::Uploader::S3::PartData->new($upload_id);
 }
 
-=item upload_part( $filename, $content )
+=item upload_part( $context, $filename, $content )
 
 =cut
 
 sub upload_part {
     my $self = shift;
-    my ( $file, $content ) = @_;
-
-    croak "not initialized part upload\n" unless defined $self->{upload_id};
+    my ( $context, $file, $content ) = @_;
 
     my $url = URI->new($file);
     $url->query_form(
-        [   partNumber => 1 + scalar @{ $self->{upload_part} },
-            uploadId   => $self->{upload_id},
+        [   partNumber => $context->next_count,
+            uploadId   => $context->id,
         ]
     );
     my $request = $self->build_request( 'PUT', $url, $content );
@@ -338,25 +319,24 @@ sub upload_part {
         die $response->as_string;
     }
     DEBUG "Response: ", $response->header('ETag');
-    push @{ $self->{upload_part} }, $response->header('ETag');
 
-    scalar @{ $self->{upload_part} };
+    $context->add_part( $response->header('ETag') );
 }
 
-=item complete_upload( $filename )
+=item complete_upload( $context, $filename )
 
 =cut
 
 sub complete_upload {
     my $self = shift;
-    my ($file) = @_;
+    my ( $context, $file ) = @_;
 
     my $url = URI->new($file);
-    $url->query_form( uploadId => $self->{upload_id} );
+    $url->query_form( uploadId => $context->id );
 
     my @line  = '<CompleteMultipartUpload>';
     my $count = 0;
-    for my $etag ( @{ $self->{upload_part} } ) {
+    for my $etag ( @{ $context->parts } ) {
         ++$count;
         push @line,
             qq(<Part><PartNumber>$count</PartNumber><ETag>"$etag"</ETag></Part>);
@@ -372,8 +352,6 @@ sub complete_upload {
         die $response->as_string;
     }
     DEBUG "response =>\n", $response->content;
-    undef $self->{upload_part};
-    undef $self->{upload_id};
 
     $response->content;
 }
@@ -388,9 +366,10 @@ sub abort_incomplete {
     if (@incomplete) {
         INFO( scalar(@incomplete), " incomplete object(s) found." );
         for my $target ( @{ $self->get_incomplete } ) {
-            INFO "abourt: $target->[0] => $target->[1]";
-            $self->upload_id( $target->[1] );
-            $self->abort_upload( '/' . $target->[0] );
+            INFO "abort: $target->[0] => $target->[1]";
+            my $context
+                = ShionBackup::Uploader::S3::PartData->new( $target->[1] );
+            $self->abort_upload( $context, '/' . $target->[0] );
         }
     }
     else {
@@ -398,16 +377,16 @@ sub abort_incomplete {
     }
 }
 
-=item abort_upload( $filename )
+=item abort_upload( $context, $filename )
 
 =cut
 
 sub abort_upload {
     my $self = shift;
-    my ($file) = @_;
+    my ( $context, $file ) = @_;
 
     my $url = URI->new($file);
-    $url->query_form( uploadId => $self->{upload_id} );
+    $url->query_form( uploadId => $context->id );
 
     my $request = $self->build_request( 'DELETE', $url, undef );
     DEBUG "request =>\n", $request->as_string if IS_DEBUG;
@@ -417,8 +396,6 @@ sub abort_upload {
     if ( $response->is_error ) {
         die $response->as_string;
     }
-    undef $self->{upload_part};
-    undef $self->{upload_id};
 
     1;
 }
@@ -464,16 +441,16 @@ sub get_incomplete {
     \@upload;
 }
 
-=item get_part( $filename )
+=item get_part( $context, $filename )
 
 =cut
 
 sub get_part {
     my $self = shift;
-    my ($file) = @_;
+    my ( $context, $file ) = @_;
 
     my $url = URI->new($file);
-    $url->query_form( uploadId => $self->{upload_id} );
+    $url->query_form( uploadId => $context->id );
 
     my $request = $self->build_request( 'GET', $url, undef );
     DEBUG "request =>\n", $request->as_string if IS_DEBUG;
@@ -491,3 +468,39 @@ sub get_part {
 =back
 
 =cut
+
+package ShionBackup::Uploader::S3::PartData;
+
+sub new {
+    my $class = shift;
+    my ($id) = @_;
+    bless {
+        id    => $id,
+        parts => [],
+    }, $class;
+}
+
+sub id {
+    my $self = shift;
+    $self->{id};
+}
+
+sub add_part {
+    my $self = shift;
+    my ($part) = @_;
+
+    push @{ $self->{parts} }, $part;
+    scalar @{ $self->{parts} };
+}
+
+sub parts {
+    my $self = shift;
+    $self->{parts};
+}
+
+sub next_count {
+    my $self = shift;
+    scalar @{ $self->{parts} } + 1;
+}
+
+1;
