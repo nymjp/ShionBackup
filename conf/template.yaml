@@ -1,0 +1,79 @@
+####
+#### reusable template definitions
+####
+templates:
+  ## basic parts
+  base:
+    args:
+    template: 
+    commands:
+
+  args:
+    args:
+      UPLOAD_SIZE: 100 # (MB)
+      S3_RRS: 0        # AWS S3 RRS 0: disable, 1: enable
+
+  gpg:
+    args:
+      gpg_recv: Backup
+      gpg_home: /etc/backup/gnupg
+      gpg_opts: --lock-never --no-permission-warn --no-random-seed-file
+    template: 
+    commands:
+      90_encrypt: gpg2 --batch -qer ${gpg_recv} ${gpg_home:<--homedir=} ${gpg_opts}
+    
+  bz2:
+    args:
+      bz2_level: 9
+    template: 
+    commands:
+      20_compress: bzip2 -c -${bz2_level}
+
+  tar:
+    args:
+      tar_opts:
+      tar_src : ~
+    template: 
+    commands:
+      10_tar : tar c -o -C / ${tar_opts} ${tar_src}
+
+  mysql:
+    args:
+      mysql_usr: backup
+      mysql_db : ~
+    template: 
+    commands:
+      10_mysql: mysqldump -q -u ${mysql_usr} ${mysql_db}
+
+  ## complex definitions
+  fs:
+    template:
+      - base
+      - tar
+      - gpg
+      - args
+  
+  fs-compress:
+    template:
+      - base
+      - tar
+      - bz2
+      - gpg
+      - args
+
+  mysqldump:
+    template:
+      - base
+      - mysql
+      - bz2
+      - gpg
+      - args
+
+uploader:
+  class  : S3
+  id     :
+  secret :
+  baseurl:
+  # baseurl: !!perl/code: '{"https://example.s3.amazonaws.com/set" . (time/( 3600*24*7 ) % 2 + 1) . "/"}'
+
+targets:
