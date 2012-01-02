@@ -11,9 +11,9 @@ use warnings;
 use FileHandle;
 use Exporter 'import';
 @ShionBackup::Logger::EXPORT
-    = qw( LOG_ALL LOG_DEBUG LOG_INFO LOG_WARN LOG_DEBUG
-    DEBUG INFO WARN ERROR FATAL
-    IS_DEBUG IS_INFO IS_WARN );
+    = qw( LOG_ALL LOG_TRACE LOG_DEBUG LOG_INFO LOG_WARN LOG_DEBUG
+    TRACE DEBUG INFO WARN ERROR FATAL
+    IS_TRACE IS_DEBUG IS_INFO IS_WARN );
 
 open my $logfh, '>&', \*STDOUT;
 $logfh->autoflush(1);
@@ -29,6 +29,8 @@ our $TIMESTAMP_ENABLED = 0;
 
 =item LOG_ALL
 
+=item LOG_TRACE
+
 =item LOG_DEBUG
 
 =item LOG_INFO
@@ -42,6 +44,7 @@ our $TIMESTAMP_ENABLED = 0;
 =cut
 
 sub LOG_ALL   {0}
+sub LOG_TRACE {1}
 sub LOG_DEBUG {10}
 sub LOG_INFO  {100}
 sub LOG_WARN  {1000}
@@ -67,6 +70,10 @@ sub _LOG {
 
 =over 4
 
+=item TRACE
+
+=item IS_TRACE
+
 =item DEBUG
 
 =item IS_DEBUG
@@ -89,7 +96,7 @@ sub _LOG {
 
 =cut
 
-for my $field (qw[ DEBUG INFO WARN ERROR FATAL ]) {
+for my $field (qw[ TRACE DEBUG INFO WARN ERROR FATAL ]) {
     my $slot_log = __PACKAGE__ . "::$field";
     my $slot_is  = __PACKAGE__ . "::IS_$field";
     no strict 'refs';
