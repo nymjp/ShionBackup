@@ -37,6 +37,7 @@ sub run {
         'workfile|w=s' => \$WORK_FILE,
         'noupload'     => \$NOUPLOAD,
         'progress'     => \$PROGRESS,
+        'trace'        => sub { $ShionBackup::Logger::LOG_LEVEL = LOG_TRACE },
         'debug'        => sub { $ShionBackup::Logger::LOG_LEVEL = LOG_DEBUG },
     ) or usage();
     @ARGV || usage();
