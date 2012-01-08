@@ -20,14 +20,14 @@ template:
       gpg_opts: --lock-never --no-permission-warn --no-random-seed-file
     template: 
     command:
-      90_encrypt: gpg2 --batch -qer ${gpg_recv} ${gpg_home:<--homedir=} ${gpg_opts}
+      - gpg2 --batch -qer ${gpg_recv} ${gpg_home:<--homedir=} ${gpg_opts}
     
   bz2:
     arg:
       bz2_level: 9
     template: 
     command:
-      20_compress: bzip2 -c -${bz2_level}
+      - bzip2 -c -${bz2_level}
 
   tar:
     arg:
@@ -36,7 +36,7 @@ template:
       tar_root: /
     template: 
     command:
-      10_tar : tar c -o ${tar_root:<-C } ${tar_opts} ${tar_src}
+      - tar c -o ${tar_root:<-C } ${tar_opts} ${tar_src}
 
   mysqldump:
     arg:
@@ -44,7 +44,7 @@ template:
       mysqldump_db : ~
     template: 
     command:
-      10_mysql: mysqldump -q -u ${mysqldump_usr} ${mysqldump_db}
+      - mysqldump -q -u ${mysqldump_usr} ${mysqldump_db}
 
   ## complex definitions
   fs:
