@@ -13,6 +13,7 @@ use ShionBackup::Logger qw(:all);
 use ShionBackup::Config;
 use ShionBackup::PipeExec;
 use ShionBackup::Uploader;
+use ShionBackup::Util;
 
 =head1 NAME
 
@@ -114,7 +115,8 @@ sub run {
 
                     seek $work_fh, 0, 0;
                     if ($part_context) {
-                        INFO "part uploading $filename: size=$size";
+                        INFO "part uploading $filename: size=",
+                            commify($size);
                         my $num = $uploader->upload_part( $part_context,
                             $filename, $work_fh );
                         INFO "part upload($num) done.";
@@ -124,7 +126,7 @@ sub run {
                         INFO "finalize done.";
                     }
                     else {
-                        INFO "uploading $filename: size=$size";
+                        INFO "uploading $filename: size=", commify($size);
                         $uploader->upload( $args, $filename, $work_fh );
                         INFO "upload done.";
                     }
@@ -139,7 +141,7 @@ sub run {
                     }
 
                     seek $work_fh, 0, 0;
-                    INFO "part uploading $filename: size=$size";
+                    INFO "part uploading $filename: size=", commify($size);
                     my $num
                         = $uploader->upload_part( $part_context, $filename,
                         $work_fh );

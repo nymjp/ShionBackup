@@ -101,3 +101,10 @@ BEGIN {
         };
 
 }
+
+# test: commify
+{
+    is commify(100),       '100';
+    is commify(1_000),     '1,000';
+    is commify(1_999_999), '1,999,999';
+}

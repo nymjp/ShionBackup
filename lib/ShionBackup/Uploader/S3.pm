@@ -15,6 +15,7 @@ use warnings;
 use base 'ShionBackup::Uploader';
 use Carp;
 use ShionBackup::Logger;
+use ShionBackup::Util;
 
 use File::Spec::Functions qw(catfile);
 use URI;
@@ -207,12 +208,12 @@ sub build_request {
                     my $complete_ratio = ( $upload_length * 1.0 ) / $length;
                     my $mark_num       = int( $complete_ratio * 20 );
                     printf STDERR (
-                        "\r" . 'uploading [%s>%s] %3.1f%% %d/%d',
+                        "\r" . 'uploading [%s>%s] %3.1f%% %s/%s',
                         "=" x $mark_num,
                         "." x ( 20 - $mark_num ),
                         $complete_ratio * 100,
-                        $upload_length,
-                        $length
+                        commify($upload_length),
+                        commify($length)
                     );
                     if ( length($buffer) == 0 ) {
                         print STDERR "\n";

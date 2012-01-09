@@ -15,6 +15,7 @@ use warnings;
 use base 'ShionBackup::Uploader';
 use Carp;
 use ShionBackup::Logger;
+use ShionBackup::Util;
 
 =head2 CONSTRUCTORS
 
@@ -49,7 +50,7 @@ sub upload {
     my $self = shift;
     my ( $args, $filename, $content ) = @_;
     INFO( "=DUMMY UPLOAD= upload: filename=$filename, content length=",
-        _get_length($content) );
+        commify( _get_length($content) ) );
     return 1;
 }
 
@@ -75,7 +76,7 @@ sub upload_part {
     my $self = shift;
     my ( $context, $filename, $content ) = @_;
     INFO( "=DUMMY UPLOAD= upload_part: filename=$filename, content length=",
-        _get_length($content) );
+        commify( _get_length($content) ) );
     return ++$self->{count};
 }
 

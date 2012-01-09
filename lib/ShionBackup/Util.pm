@@ -12,7 +12,11 @@ use strict;
 use warnings;
 use base qw(Exporter);
 
-our @EXPORT = qw(merge_deeply apply_deeply process_perl process_perl_deeply);
+our @EXPORT = qw(
+    merge_deeply apply_deeply
+    process_perl process_perl_deeply
+    commify
+);
 
 =head2 FUNCTIONS
 
@@ -101,6 +105,16 @@ sub process_perl_deeply {
         }
     );
     $$subj;
+}
+
+=item commify( $number )
+
+=cut
+
+sub commify {
+    my $rnum = reverse shift;
+    $rnum =~ s/(\d\d\d)(?=\d)(?!\d*\.)/$1,/g;
+    return scalar reverse $rnum;
 }
 
 1;
