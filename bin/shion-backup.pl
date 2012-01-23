@@ -4,5 +4,12 @@ use strict;
 use warnings;
 
 use ShionBackup;
+use ShionBackup::Logger;
 
-ShionBackup->run(@ARGV);
+eval {
+    ShionBackup->run(@ARGV);
+};
+if ($@) {
+    FATAL $@;
+    die $@;
+}

@@ -9,7 +9,7 @@ use Pod::Usage;
 use File::Temp qw( tempfile );
 
 # ShionBackup modules
-use ShionBackup::Logger;
+use ShionBackup::Logger qw(:all);
 use ShionBackup::Config;
 use ShionBackup::PipeExec;
 use ShionBackup::Uploader;
@@ -29,26 +29,35 @@ ShionBackup
 sub run {
     my $class = shift;
     local @ARGV = @_;
+    set_log_level(LOG_INFO);    # default log level
 
-    my ( $DUMP_CONFIG, $WORK_FILE, $NOUPLOAD, $PROGRESS );
+    my ( $DUMP_TARGET, $DUMP_CONFIG, $WORK_FILE, $NOUPLOAD, $PROGRESS );
     GetOptions(
-        'help|h'       => \&usage,
-        'dumpconfig|d' => \$DUMP_CONFIG,
-        'workfile|w=s' => \$WORK_FILE,
-        'noupload'     => \$NOUPLOAD,
-        'progress'     => \$PROGRESS,
-        'trace'        => sub { $ShionBackup::Logger::LOG_LEVEL = LOG_TRACE },
-        'debug'        => sub { $ShionBackup::Logger::LOG_LEVEL = LOG_DEBUG },
+        'help|h'             => \&usage,
+        'dump-target|dump|d' => \$DUMP_TARGET,
+        'dump-config'        => \$DUMP_CONFIG,
+        'workfile|w=s'       => \$WORK_FILE,
+        'noupload'           => \$NOUPLOAD,
+        'progress'           => \$PROGRESS,
+        'trace'              => sub { set_log_level(LOG_TRACE) },
+        'debug'              => sub { set_log_level(LOG_DEBUG) },
     ) or usage();
     @ARGV || usage();
 
-    my $conf = ShionBackup::Config->load(@ARGV);
-    my $BUFF_SIZE;
-    $BUFF_SIZE = $conf->{buffer} * 1000_000 if $conf->{buffer};
+    my $conf = ShionBackup::Config->new;
+    $conf->load(@ARGV);
 
     if ($DUMP_CONFIG) {
         DEBUG "Mode: DUMP CONFIG";
-        dump_config();
+        print $conf->dump_raw();
+        $conf->process;
+        exit 0;
+    }
+
+    $conf->process;
+    if ($DUMP_TARGET) {
+        DEBUG "Mode: DUMP TARGET";
+        print $conf->dump_target();
         exit 0;
     }
     else {
@@ -61,25 +70,23 @@ sub run {
             $work_fh = tempfile( UNLINK => 1 );
         }
 
-        my $uploader = $class->create_uploader( $conf, $NOUPLOAD, $PROGRESS );
+        my $uploader = $class->create_uploader( $conf->uploader, $NOUPLOAD,
+            $PROGRESS );
 
         ## abort previous incomplete upload
         $uploader->abort_incomplete;
 
-        for my $target ( @{ $conf->{targets} } ) {
-            my $filename = $target->{filename};
-            my $uploadsize
-                = $target->{args}{UPLOAD_SIZE}
-                ? $target->{args}{UPLOAD_SIZE} * 1000_000
-                : undef;
-            my $piper = ShionBackup::PipeExec->new;
+        for my $target ( @{ $conf->target->all } ) {
+            my $filename   = $target->filename;
+            my $uploadsize = $target->uploadsize_byte;
+            my $piper      = ShionBackup::PipeExec->new;
 
             INFO "=======================";
             INFO "backup start: $filename";
 
-            my $args = $target->{args};
+            my $args = $target->arg;
             my $fh   = undef;
-            for my $command ( @{ $target->{commands} } ) {
+            for my $command ( @{ $target->command_array } ) {
                 next unless defined $command;
                 $fh = $piper->run( $command, $fh, $args )
                     or die "piper error: $@";
@@ -148,7 +155,7 @@ sub run {
     INFO 'all backup end';
 }
 
-=item create_uploader( \%config );
+=item create_uploader( Config::Uploader $config, $noupload, $progress );
 
 =cut
 
@@ -156,16 +163,13 @@ sub create_uploader {
     my $class = shift;
     my ( $conf, $noupload, $progress ) = @_;
 
-    my %uploader_conf = %{ $conf->{uploader} };
-    for ( @uploader_conf{ 'class', 'baseurl', 'id', 'secret' } ) {
-        die "invalid uploader config.\n" unless defined $_;
-        next unless ref $_ eq 'CODE';
-        $_ = $_->();
+    if ($noupload) {
+        INFO "*** noupload ***";
+        $conf->set_class('Null');
     }
 
-    $uploader_conf{class} = 'Null' if $noupload;
-
-    my $uploader = ShionBackup::Uploader->create( \%uploader_conf );
+    my $uploader = ShionBackup::Uploader->create($conf);
+    TRACE "uploader: ", ref $uploader if IS_TRACE;
     $uploader->set_show_progress(1) if ($progress);
     $uploader;
 }
@@ -194,6 +198,14 @@ sub usage {
 
 sub dump_config {
     print STDERR ShionBackup::Config->dump_config, "\n";
+}
+
+=item dump_target
+
+=cut
+
+sub dump_target {
+    print STDERR ShionBackup::Config->dump_target, "\n";
 }
 
 1;

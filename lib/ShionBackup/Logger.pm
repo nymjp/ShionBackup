@@ -10,10 +10,13 @@ use strict;
 use warnings;
 use FileHandle;
 use Exporter 'import';
-@ShionBackup::Logger::EXPORT
-    = qw( LOG_ALL LOG_TRACE LOG_DEBUG LOG_INFO LOG_WARN LOG_DEBUG
+our @EXPORT = qw(
+    LOG_ALL LOG_TRACE LOG_DEBUG LOG_INFO LOG_WARN LOG_DEBUG
     TRACE DEBUG INFO WARN ERROR FATAL
-    IS_TRACE IS_DEBUG IS_INFO IS_WARN );
+    IS_TRACE IS_DEBUG IS_INFO IS_WARN
+);
+our @EXPORT_OK = qw(set_log_level);
+our %EXPORT_TAGS = ( all => [ @EXPORT, @EXPORT_OK ] );
 
 open my $logfh, '>&', \*STDOUT;
 $logfh->autoflush(1);

@@ -44,7 +44,7 @@ sub new {
 
 =over 4
 
-=item create( \%uploader_config )
+=item create( Config::Uploader $uploader_conf )
 
 =cut
 
@@ -52,12 +52,12 @@ sub create {
     my $class = shift;
     my ($config) = @_;
 
-    my $uploader_class = $config->{class};
+    my $uploader_class = $config->class;
     eval "use ShionBackup::Uploader::$uploader_class";
     die $@ if ($@);
 
     "ShionBackup::Uploader::$uploader_class"
-        ->new( $config->{baseurl}, $config->{id}, $config->{secret} );
+        ->new( $config->url, $config->id, $config->secret );
 }
 
 =back

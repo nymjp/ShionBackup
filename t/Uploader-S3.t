@@ -110,10 +110,9 @@ sub create_object {
 {
     my $t = create_object;
 
-    my $r = HTTP::Request->new(
-        'GET',
+    my $r = HTTP::Request->new( 'GET',
         'http://johnsmith.s3.amazonaws.com/?uploads&prefix=photos&max-keys=50&marker=puppy'
-       );
+    );
     is $t->build_resource_string($r), '/johnsmith/?uploads';
 }
 
@@ -123,6 +122,7 @@ sub create_object {
 
     {
         my $req = $t->build_request( 'PUT', 'file' );
+
         #diag $req->as_string;
         is( $req->authorization,
             'AWS 0PN5J17HBGZHT7JJ3X82:QAXzsKwUSh2E8iGLpFhsHJUWHQ0=' );

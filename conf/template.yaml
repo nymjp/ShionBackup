@@ -1,49 +1,50 @@
 ####
 #### reusable template definitions
 ####
-templates:
+template:
   ## basic parts
   base:
-    args:
+    arg:
     template: 
-    commands:
+    command:
 
   args:
-    args:
-      UPLOAD_SIZE: 100 # (MB)
+    uploadsize: 1000   # (MB)
+    arg:
       S3_RRS: 0        # AWS S3 RRS 0: disable, 1: enable
 
   gpg:
-    args:
+    arg:
       gpg_recv: Backup
       gpg_home: /etc/backup/gnupg
       gpg_opts: --lock-never --no-permission-warn --no-random-seed-file
     template: 
-    commands:
+    command:
       90_encrypt: gpg2 --batch -qer ${gpg_recv} ${gpg_home:<--homedir=} ${gpg_opts}
     
   bz2:
-    args:
+    arg:
       bz2_level: 9
     template: 
-    commands:
+    command:
       20_compress: bzip2 -c -${bz2_level}
 
   tar:
-    args:
+    arg:
       tar_opts:
       tar_src : ~
+      tar_root: /
     template: 
-    commands:
-      10_tar : tar c -o -C / ${tar_opts} ${tar_src}
+    command:
+      10_tar : tar c -o ${tar_root:<-C } ${tar_opts} ${tar_src}
 
-  mysql:
-    args:
-      mysql_usr: backup
-      mysql_db : ~
+  mysqldump:
+    arg:
+      mysqldump_usr: backup
+      mysqldump_db : ~
     template: 
-    commands:
-      10_mysql: mysqldump -q -u ${mysql_usr} ${mysql_db}
+    command:
+      10_mysql: mysqldump -q -u ${mysqldump_usr} ${mysqldump_db}
 
   ## complex definitions
   fs:
@@ -61,10 +62,10 @@ templates:
       - gpg
       - args
 
-  mysqldump:
+  mysql:
     template:
       - base
-      - mysql
+      - mysqldump
       - bz2
       - gpg
       - args

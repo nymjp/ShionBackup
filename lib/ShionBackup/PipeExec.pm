@@ -66,14 +66,12 @@ sub run {
             exit 0;
         }
         elsif ( $cmd_type eq 'ARRAY' ) {
-            my @cmd = _process_args( $args, @$cmd );
-            DEBUG $log, "run command: ", join " ", @cmd if IS_DEBUG;
-            exec @cmd;
+            DEBUG $log, "run command: ", join " ", @$cmd if IS_DEBUG;
+            exec @$cmd;
         }
         else {
-            my $cmd_str = _process_args( $args, $cmd );
-            DEBUG $log, "run command: $cmd_str";
-            exec $cmd_str;
+            DEBUG $log, "run command: $cmd";
+            exec $cmd;
         }
     }
     else {
@@ -102,32 +100,6 @@ sub check_status {
         die "some commands failed: ", join( "\n  ", @errors ), "\n";
     }
     1;
-}
-
-sub _process_args {
-    my ( $args, @str ) = @_;
-    map {
-        s{\${(.*?)}}{
-            my $key = $1;
-            if ($key eq '$') { '$' }
-            elsif ( $key =~ s/^([^:]+):(<|>)(.*$)/$1/ ) {
-                $key = $1;
-                if ( !defined $args->{$key} ) { "" }
-                elsif ( $2 eq '<' ) {
-                    "$3$args->{$key}";
-                }
-                elsif ( $2 eq '>' ) {
-                    "$args->{$key}$3";
-                }
-                else { "" }
-            }
-            elsif ( defined $args->{$key} ) {
-                $args->{$key};
-            }
-            else { "" }
-        }gex;
-    } @str;
-    wantarray ? @str : pop @str;
 }
 
 sub _dump_command {

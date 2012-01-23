@@ -9,22 +9,50 @@ ShionBackup::Config
 use strict;
 use warnings;
 use YAML::Syck;
+use base qw( ShionBackup::Config::Base );
 use ShionBackup::Logger;
+use ShionBackup::Util;
+use ShionBackup::Config::Util::TypeCheck;
+use ShionBackup::Config::Uploader;
+use ShionBackup::Config::Templates;
+use ShionBackup::Config::Targets;
 
 my $config = {};
 
 =head1 DESCRIPTION
 
-=head2 CLASS METHODS
+=head2 CONTRACTORS
 
 =over 4
 
-=item load
+=item new
+
+=cut
+
+sub new {
+    my $class = shift;
+
+    my $templates = ShionBackup::Config::Templates->new;
+    my $targets   = ShionBackup::Config::Targets->new($templates);
+    my $self      = $class->SUPER::new;
+    $self->{uploader} = ShionBackup::Config::Uploader->new;
+    $self->{template} = $templates;
+    $self->{target}   = $targets;
+    $self;
+}
+
+=back
+
+=head2 METHODS
+
+=over 4
+
+=item load( @filename )
 
 =cut
 
 sub load {
-    my $class = shift;
+    my $self  = shift;
     my @files = @_;
 
     local $YAML::Syck::ImplicitUnicode = 1;
@@ -35,129 +63,95 @@ sub load {
         if ($@) {
             die "$file: $@\n";
         }
-        _merge_deep( $config, $data );
+        $self->merge($data);
     }
-    _preprocess_templates($config);
 
-    # preprocess targets
-    $config->{targets} = _preprocess_targets($config);
+    DEBUG Dump( $self->raw ) if IS_DEBUG;
 
-    DEBUG Dump($config) if IS_DEBUG;
+    $self;
+}
 
-    $config;
+=item merge( \%hash )
+
+=cut
+
+sub merge {
+    my $self = shift;
+    my ($hash) = @_;
+
+    match_type( $hash, TYPE_HASH );
+
+    for my $field (qw( uploader template target )) {
+        if ( defined $hash->{$field} ) {
+            $self->{$field}->merge( $hash->{$field} );
+        }
+    }
+}
+
+=item process
+
+=cut
+
+sub process {
+    my $self = shift;
+
+    for my $field (qw( uploader template target )) {
+        eval { $self->{$field}->process };
+        if ($@) {
+            FATAL "configuration error found in $field section.";
+            handle_unmatch { unshift @{ shift->context }, "{$field}" };
+        }
+    }
 }
 
 =back
 
-=head2 CLASS METHODS
+=head2 D/A METHODS
 
 =over 4
 
-=item config
+=item uploader
+
+=item template
+
+=item target
 
 =cut
 
-sub config {
-    shift;
-    $config = shift if @_;
-    $config;
+for my $field (qw[ uploader template target ]) {
+    my $slot_get = __PACKAGE__ . "::$field";
+    no strict 'refs';
+    *$slot_get = sub {
+        my $self = shift;
+        $self->{$field};
+    };
 }
 
-=back
+=item raw
 
-=head2 FUNCTIONS
-
-=over 4
-
-=item dump_config
+=item processed
 
 =cut
 
-sub dump_config {
-    local $YAML::Syck::SortKeys = 1;
-    Dump($config);
+for my $field (qw[ raw processed ]) {
+    my $slot_get = __PACKAGE__ . "::$field";
+    no strict 'refs';
+    *$slot_get = sub {
+        my $self = shift;
+        {   uploader => $self->{uploader}->$field,
+            template => $self->{template}->$field,
+            target   => $self->{target}->$field,
+        };
+    };
 }
 
-sub _preprocess_templates {
-    my ( $config, $names ) = @_;
-    $names //= [ keys %{ $config->{templates} } ];
-    $names = [$names] unless ref $names eq 'ARRAY';
+=item dump_target
 
-    for my $name (@$names) {
-        DEBUG "name: $name";
-        my $template = $config->{templates}{$name}{template} or next;
-        DEBUG "has template: $name";
-        _preprocess_templates( $config, $template );
-        my $new_template;
-        for my $t ( ref $template ? @$template : $template ) {
-            DEBUG "merge template $t to $name";
-            _merge_deep( $new_template, $config->{templates}{$t} );
-        }
-        $config->{templates}{$name}
-            = _merge_deep( $new_template, $config->{templates}{$name} );
-        delete $config->{templates}{$name}{template};
-    }
-    1;
-}
+=cut
 
-sub _preprocess_targets {
-    my ($config) = @_;
-
-    my @targets;
-    for my $t ( @{ $config->{targets} } ) {
-        my $target;
-
-        # merge args
-        _merge_deep( $target->{args}, $config->{args} )
-            if exists $config->{args};
-
-        # process template
-        if ( $t->{template} ) {
-            for my $template (
-                ref $t->{template} eq 'ARRAY'
-                ? @{ $t->{template} }
-                : $t->{template}
-                )
-            {
-                _merge_deep( $target, $config->{templates}{$template} );
-            }
-        }
-        _merge_deep( $target, $t );
-
-        # normalize commands
-        if ( ref $target->{commands} eq 'HASH' ) {
-            $target->{commands} = [
-                map { $target->{commands}{$_} }
-                sort keys %{ $target->{commands} }
-            ];
-        }
-
-        push @targets, $target;
-    }
-    \@targets;
-}
-
-sub _merge_deep {
-    my $dstr     = \$_[0];
-    my $src      = $_[1];
-    my $src_type = ref($src);
-
-    if ( $src_type eq 'ARRAY' ) {
-        $$dstr = [] unless ref($$dstr) eq 'ARRAY';
-        for ( my $i = 0; $i < @$src; ++$i ) {
-            _merge_deep( $$dstr->[$i], $src->[$i] );
-        }
-    }
-    elsif ( $src_type eq 'HASH' ) {
-        $$dstr = {} unless ref($$dstr) eq 'HASH';
-        for my $key ( keys %$src ) {
-            _merge_deep( $$dstr->{$key}, $src->{$key} );
-        }
-    }
-    else {
-        $$dstr = $src;
-    }
-    $$dstr;
+sub dump_target {
+    my $self = shift;
+    $self->{target}->dump_processed;
 }
 
 1;
@@ -166,24 +160,41 @@ sub _merge_deep {
 
 =head1 CONFIG STRUCTURE
 
- s3:
-   baseurl: string or code
-   id:      string
-   secret:  string
- templates:
-   TEMPLAGE_NAME:
-     # using other templates (optional)
-     template: TEMPLATE_NAME or [ TEMPLATE_NAME...]
- targets:
-   -
-   # upload filename
-   filename: string
-
-   # using templates (optional)
-   template: TEMPLATE_NAME or [ TEMPLATE_NAME...]
-
-   # dump commands (array or hash (sorted by keys))
-   commands:
-     - string or code
+ $config = {
+   uploader => \%uploader,
+   template => \%template,
+   target   => \%target,
+ }
+ 
+ %uploader = (
+   id     => <STRING> or <CODE>,
+   secret => <STRING> or <CODE>,
+   url    => <STRING> or <CODE>, # base url
+ )
+ 
+ %template = (
+   <TEMPLATE_NAME> => \%target,
+   ...
+ )
+ 
+ %target = (
+   filename => <STRING>,
+   arg      => \%arg,
+   command  => \@command or \%command,
+   
+   # optional
+   template   => $template_name or \@template_name,
+   uploadsize => <INTEGER>, # (MB)
+ )
+ 
+ $template_name = <STRING>
+ @template_name = ( $template_ref, ... )
+ 
+ @command = ( $command, ... )
+ %command = ( # run by NAME order
+   <NAME> => $command,
+   ...
+ )
+ $command = <STRING> or <CODE>
 
 =cut

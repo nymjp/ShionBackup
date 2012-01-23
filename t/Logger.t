@@ -5,7 +5,7 @@ use strict;
 use warnings;
 
 BEGIN {
-	use_ok( 'ShionBackup::Logger' );
+    use_ok('ShionBackup::Logger');
 }
 
 done_testing();
