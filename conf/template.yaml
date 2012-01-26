@@ -42,9 +42,10 @@ template:
     arg:
       mysqldump_usr: backup
       mysqldump_db : ~
+      mysqldump_opt: --quick --lock-tables
     template: 
     command:
-      - mysqldump -q -u ${mysqldump_usr} ${mysqldump_db}
+      - mysqldump -u ${mysqldump_usr} ${mysqldump_opt} ${mysqldump_db}
 
   ## complex definitions
   fs:
