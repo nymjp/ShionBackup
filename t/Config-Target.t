@@ -57,21 +57,23 @@ $tmpl->merge(
         my $conf = $t->process_elements( { filename => 'me', } );
         is_deeply $conf,
             {
-            filename   => 'me',
-            uploadsize => undef,
-            template   => [],
-            arg        => {},
-            command    => {},
+            filename        => 'me',
+            uploadsize_byte => undef,
+            template        => [],
+            arg             => {},
+            command         => {},
             };
     }
     {
         my $conf = $t->process_elements(
-            {   filename => 'me',
-                template => 'bar'
+            {   filename   => 'me',
+                template   => 'bar',
+                uploadsize => 2,
             }
         );
         is $conf->{arg}{foo}, 'fooval';
         is $conf->{arg}{bar}, 'barval';
+        is $conf->{uploadsize_byte}, 2_000_000;
     }
 
     # loop
@@ -153,7 +155,6 @@ $tmpl->merge(
     is_deeply $t->template, [ 'foo', 'bar' ];
     is_deeply $t->command,  [ 'foo', 'bar' ];
 
-    is $t->uploadsize,      42;
     is $t->uploadsize_byte, 42_000_000;
 }
 

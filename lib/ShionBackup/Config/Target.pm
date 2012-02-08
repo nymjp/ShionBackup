@@ -10,6 +10,7 @@ ShionBackup::Config::Target
 
 use strict;
 use warnings;
+use Carp;
 use base qw(ShionBackup::Config::SectionBase);
 use ShionBackup::Util;
 use ShionBackup::Logger;
@@ -40,7 +41,7 @@ sub new {
 
 =item filename
 
-=item uploadsize
+=item uploadsize_byte
 
 =item arg
 
@@ -50,7 +51,7 @@ sub new {
 
 =cut
 
-for my $field (qw[ filename uploadsize arg template command ]) {
+for my $field (qw[ filename uploadsize_byte arg template command ]) {
     my $slot_get = __PACKAGE__ . "::$field";
     no strict 'refs';
     *$slot_get = sub {
@@ -59,17 +60,20 @@ for my $field (qw[ filename uploadsize arg template command ]) {
     };
 }
 
-=item uploadsize_byte
+=item uploadsize
 
-return uploadsize with byte.
+[廃止]
+
+return uploadsize by (MB)
 
 =cut
 
-sub uploadsize_byte {
+sub uploadsize {
     my $self = shift;
-    my $size = $self->processed->{uploadsize} or return;
+    my $size = $self->processed->{uploadsize_byte} or return;
 
-    $size * 1_000_000;    # MB to Byte
+    carp "ShionBackup::Config::Target::uploadsize() was deprecated!!";
+    $size / 1_000_000;    # MB to Byte
 }
 
 =item command_array
@@ -121,7 +125,8 @@ sub check_raw {
                 TYPE_ARRAY() => [ TYPE_SCALAR, TYPE_CODE, ],
                 TYPE_HASH()  => [ TYPE_SCALAR, TYPE_CODE, ],
             },
-            uploadsize => [ TYPE_UNDEF, TYPE_SCALAR ],
+            uploadsize      => [ TYPE_UNDEF, TYPE_SCALAR ],
+            uploadsize_byte => [ TYPE_UNDEF, TYPE_SCALAR ],
         )
     );
 }
@@ -135,11 +140,11 @@ sub process_elements {
     my ($raw) = @_;
 
     my $newhash = {
-        filename   => undef,
-        arg        => {},
-        template   => [],
-        command    => {},
-        uploadsize => undef,
+        filename        => undef,
+        arg             => {},
+        template        => [],
+        command         => {},
+        uploadsize_byte => undef,
     };
     my $template = $raw->{template} = (
          !defined $raw->{template} ? []
@@ -152,6 +157,14 @@ sub process_elements {
     ## process arg
     $self->_process_arg_code($newhash);
     $self->_process_command_arg($newhash);
+
+    ## process uploadsize
+    if (  !defined $newhash->{uploadsize_byte}
+        && defined $newhash->{uploadsize} )
+    {
+        $newhash->{uploadsize_byte}
+            = delete( $newhash->{uploadsize} ) * 1_000_000;
+    }
 
     $newhash;
 }
@@ -229,11 +242,12 @@ sub check_processed {
     match_type(
         $hash,
         MATCH_HASH(
-            filename   => TYPE_SCALAR,
-            uploadsize => [ TYPE_UNDEF, TYPE_SCALAR ],
-            arg        => TYPE_HASH,
-            template   => { TYPE_ARRAY() => TYPE_SCALAR() },
-            command    => {
+            filename        => TYPE_SCALAR,
+            uploadsize      => TYPE_UNDEF,
+            uploadsize_byte => [ TYPE_UNDEF, TYPE_SCALAR ],
+            arg             => TYPE_HASH,
+            template        => { TYPE_ARRAY() => TYPE_SCALAR() },
+            command         => {
                 TYPE_CODE()  => undef,
                 TYPE_ARRAY() => [ TYPE_SCALAR, TYPE_CODE, ],
                 TYPE_HASH()  => [ TYPE_SCALAR, TYPE_CODE, ],

@@ -69,11 +69,11 @@ sub create_object {
             },
         },
         target => [
-            {   filename   => 'test',
-                uploadsize => undef,
-                arg        => { foo => 'fooval' },
-                template   => ['foo'],
-                command    => {},
+            {   filename        => 'test',
+                uploadsize_byte => undef,
+                arg             => { foo => 'fooval' },
+                template        => ['foo'],
+                command         => {},
             }
         ],
         };
