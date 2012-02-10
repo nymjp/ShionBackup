@@ -23,7 +23,24 @@ use ShionBackup::Logger;
 sub new {
     my $class = shift;
 
-    bless { children => {}, }, $class;
+    bless {
+        children  => {},
+        output_fh => undef,
+    }, $class;
+}
+
+=back
+
+=head2 D/A METHODS
+
+=over 4
+
+=item output_fh
+
+=cut
+
+sub output_fh {
+    shift->{output_fh};
 }
 
 =back
@@ -32,13 +49,13 @@ sub new {
 
 =over 4
 
-=item run
+=item run( $cmd, $args [,$infh] )
 
 =cut
 
 sub run {
     my $self = shift;
-    my ( $cmd, $infh, $args ) = @_;
+    my ( $cmd, $args, $infh ) = @_;
 
     my ( $rfh, $wfh );
     pipe( $rfh, $wfh );
@@ -48,9 +65,12 @@ sub run {
         $self->{children}{$pid} = $cmd;
 
         close $wfh;
+        $self->{output_fh} = $rfh;
         return $rfh;
     }
     elsif ( defined $pid ) {    # child
+        $infh = $self->{output_fh} unless defined $infh;
+        undef $self->{output_fh};
         close $rfh;
 
         open my $log, '>&', STDOUT;

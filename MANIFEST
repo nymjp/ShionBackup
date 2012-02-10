@@ -14,6 +14,7 @@ lib/ShionBackup/Config/Util.pm
 lib/ShionBackup/Config/Util/TypeCheck.pm
 lib/ShionBackup/Logger.pm
 lib/ShionBackup/PipeExec.pm
+lib/ShionBackup/TargetProcesser.pm
 lib/ShionBackup/Uploader.pm
 lib/ShionBackup/Uploader/Null.pm
 lib/ShionBackup/Uploader/S3.pm
@@ -38,6 +39,7 @@ t/manifest.t
 t/PipeExec.t
 t/pod-coverage.t
 t/pod.t
+t/TargetProcesser.t
 t/test/config1.yaml
 t/test/part1.txt
 t/Uploader-Null.t

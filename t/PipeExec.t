@@ -19,8 +19,10 @@ sub create_object {
     {
         my $fh;
         $fh = $t->run('echo hoge');
-        $fh = $t->run( 'cat -n', $fh );
-        like( scalar <$fh>, qr(^\s+1\s+hoge$) );
+        $fh = $t->run('cat -n');
+        my $output_fh = $t->output_fh;
+        my $output    = scalar <$output_fh>;
+        like( $output, qr(^\s+1\s+hoge$) );
         $t->check_status;
     }
 
@@ -28,7 +30,7 @@ sub create_object {
     {
         my $fh;
         $fh = $t->run( [qw(echo hoge)] );
-        $fh = $t->run( 'cat -n', $fh );
+        $fh = $t->run( 'cat -n', {}, $fh );
         like( scalar <$fh>, qr(^\s+1\s+hoge$) );
         $t->check_status;
     }
@@ -36,8 +38,8 @@ sub create_object {
     # array
     {
         my $fh;
-        $fh = $t->run( sub { print shift }, undef, "hoge" );
-        $fh = $t->run( 'cat -n', $fh );
+        $fh = $t->run( sub { print shift }, "hoge" );
+        $fh = $t->run( 'cat -n', {}, $fh );
         like( scalar <$fh>, qr(^\s+1\s+hoge$) );
         $t->check_status;
     }

@@ -11,9 +11,8 @@ use File::Temp qw( tempfile );
 # ShionBackup modules
 use ShionBackup::Logger qw(:all);
 use ShionBackup::Config;
-use ShionBackup::PipeExec;
+use ShionBackup::TargetProcesser;
 use ShionBackup::Uploader;
-use ShionBackup::Util;
 
 our $USAGE = undef;
 
@@ -65,13 +64,6 @@ sub run {
     }
     else {
         DEBUG "Mode: BACKUP";
-        my $work_fh;
-        if ($WORK_FILE) {
-            open $work_fh, '+>', $WORK_FILE or die $!;
-        }
-        else {
-            $work_fh = tempfile( UNLINK => 1 );
-        }
 
         my $uploader = $class->create_uploader( $conf->uploader, $NOUPLOAD,
             $PROGRESS );
@@ -79,81 +71,9 @@ sub run {
         ## abort previous incomplete upload
         $uploader->abort_incomplete;
 
+        my $tp = ShionBackup::TargetProcesser->new( $uploader, $WORK_FILE );
         for my $target ( @{ $conf->target->all } ) {
-            my $filename   = $target->filename;
-            my $uploadsize = $target->uploadsize_byte;
-            my $piper      = ShionBackup::PipeExec->new;
-
-            INFO "=======================";
-            INFO "backup start: $filename";
-
-            my $args = $target->arg;
-            my $fh   = undef;
-            for my $command ( @{ $target->command_array } ) {
-                next unless defined $command;
-                $fh = $piper->run( $command, $fh, $args )
-                    or die "piper error: $@";
-            }
-            die "no output error.\n" unless defined $fh;
-
-            seek $work_fh, 0, 0;
-            truncate $work_fh, 0;
-            my ( $buffer, $part_context );
-            my $size = 0;
-            while (1) {
-
-                #DEBUG "eof: ", eof $fh;
-                # exit 99;
-                $size += read( $fh, $buffer, 4096 ) or die "read error: $!";
-                print $work_fh $buffer;
-
-                if ( eof $fh ) {
-                    eval { $piper->check_status; };
-                    if ($@) {
-                        $uploader->abort_upload( $part_context, $filename )
-                            if $part_context;
-                        die $@;
-                    }
-
-                    seek $work_fh, 0, 0;
-                    if ($part_context) {
-                        INFO "part uploading $filename: size=",
-                            commify($size);
-                        my $num = $uploader->upload_part( $part_context,
-                            $filename, $work_fh );
-                        INFO "part upload($num) done.";
-                        INFO "finalizing upload $filename";
-                        $uploader->complete_upload( $part_context,
-                            $filename );
-                        INFO "finalize done.";
-                    }
-                    else {
-                        INFO "uploading $filename: size=", commify($size);
-                        $uploader->upload( $args, $filename, $work_fh );
-                        INFO "upload done.";
-                    }
-                    last;
-                }
-                elsif ( $uploadsize && $size >= $uploadsize ) {
-                    if ( !$part_context ) {
-                        INFO "initializing part upload $filename.";
-                        $part_context
-                            = $uploader->init_upload( $args, $filename );
-                        INFO "initialize done.";
-                    }
-
-                    seek $work_fh, 0, 0;
-                    INFO "part uploading $filename: size=", commify($size);
-                    my $num
-                        = $uploader->upload_part( $part_context, $filename,
-                        $work_fh );
-                    INFO "part upload($num) done.";
-
-                    seek $work_fh, 0, 0;
-                    truncate $work_fh, 0;
-                    $size = 0;
-                }
-            }
+            $tp->run($target);
         }
     }
     INFO 'all backup end';
@@ -190,11 +110,12 @@ sub create_uploader {
 
 sub usage {
     pod2usage(
-        -exitval   => 2,
+        -exitval => 2,
+
         #-noperldoc => 1,
-        -verbose   => 2,
-        -input     => $USAGE,
-        -output    => \*STDOUT,
+        -verbose => 2,
+        -input   => $USAGE,
+        -output  => \*STDOUT,
     );
 }
 

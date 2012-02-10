@@ -171,7 +171,7 @@ sub build_request {
     # MD5 / Length
     my $md5 = Digest::MD5->new;
     my ( $digest, $length );
-    if ( ref $content eq 'GLOB' ) {
+    if ( ref $content ) {
         $md5->addfile($content);
         $digest = $md5->b64digest;
         $length = ( stat $content )[7];
@@ -198,7 +198,7 @@ sub build_request {
 
     # request
     my $request = HTTP::Request->new( $verb, $url, $header );
-    if ( ref $content eq 'GLOB' ) {
+    if ( ref $content ) {
         my $buffer;
         my $upload_length = 0;
         $request->content(
