@@ -20,7 +20,7 @@ WriteMakefile(
         'Test::More' => 0,
     },
     dist                => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
-    clean               => { FILES => 'ShionBackup-*' },
+    clean               => { FILES => [ 'ShionBackup-*', 'shion-backup' ] },
 );
 
 sub MY::postamble {
@@ -28,7 +28,12 @@ sub MY::postamble {
 .PHONY: par-bin shion-backup
 par-bin: shion-backup
 shion-backup: all
-	pp -I $(INST_LIB) -o $@ -n -P $$(find $(INST_LIB) -name '*.pm' -printf '-M %P ') \
+	pp -I $(INST_LIB) -o $@ -n -P $$(find $(INST_LIB) -name '*.pm' -printf '-a lib/%P ') \
     $$(find bin -name '*.pl' -print)
+
+## README for GitHub
+all:: README.pod
+README.pod: bin/shion-backup.pl
+	perldoc -u -d $@ $^
 MAKE_FRAG
 }

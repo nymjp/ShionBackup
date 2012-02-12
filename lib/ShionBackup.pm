@@ -15,6 +15,8 @@ use ShionBackup::PipeExec;
 use ShionBackup::Uploader;
 use ShionBackup::Util;
 
+our $USAGE = undef;
+
 =head1 NAME
 
 ShionBackup
@@ -188,9 +190,11 @@ sub create_uploader {
 
 sub usage {
     pod2usage(
-        -exitval  => 1,
-        noperldoc => 1,
-        verbose   => 2,
+        -exitval   => 2,
+        #-noperldoc => 1,
+        -verbose   => 2,
+        -input     => $USAGE,
+        -output    => \*STDOUT,
     );
 }
 
